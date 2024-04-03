@@ -48,7 +48,6 @@ const int ENCODER_L_B = 2; // ENCODER LEFT B (ticks first when motor backward)
 
 const int SPEED_MOTOR_L = 9; // PWM MOTOR LEFT 
 const int SPEED_MOTOR_R = 10; // PWM MOTOR RIGHT 
-
 const int DIR_MOTOR_L = 7; // DIRECTION MOTOR LEFT 
 const int DIR_MOTOR_R = 8; // DIRECTION MOTOR RIGHT 
 
@@ -76,21 +75,20 @@ int errorIntegral_r;
 bool switchOn = false;
 
 // Variables to keep track of our sensors
-int sensorThreshold =10;
+int sensorThreshold = 22;
 
 // Variables to keep track of where we are in the maze with coordinates
 Cell &START = maze[0][0];
-Cell &GOAL = maze[5][5];
+Cell &GOAL = maze[5][1];
 Cell currPos;
 String prevHeading = "NORTH"; // can be NORTH, EAST, SOUTH, WEST, initialise to NORTH 
 
 // Variables for setting our target moves - this will be tuned to everyone differently 
-int forwardTarget = 40; // Change these to your own values for tuning 
-int rotateTarget = 15; // Change these to your own values for tuning
-int forwardPID[3] = {1.5, 2, 0}; // kp ki kd for going forwards
+int forwardTarget = 60; // Change these to your own values for tuning 
+int rotateTarget = 44; // Change these to your own values for tuning
+int forwardPID[3] = {1.2, 2, 0}; // kp ki kd for going forwards
 int rotatePID[3] = {3, 2, 2}; // kp ki kd for rotating
 
-int FWD_COUNT = 0;
 
 /** _______________________________________________________________________________________________________________ **/
 
@@ -166,9 +164,8 @@ void readEncoderRight() {
 **/
 //==============================================================================================
 void setMotor_r(int dir, int speed){
-  //speed = speed +10;
   analogWrite(SPEED_MOTOR_R, speed);
-
+  
   if(dir == 1){
     fast_write_pin(DIR_MOTOR_R, LOW);
   } else if (dir == -1){
@@ -179,7 +176,6 @@ void setMotor_r(int dir, int speed){
 }
 
 void setMotor_l(int dir, int speed){
-  //speed = speed +13;
   analogWrite(SPEED_MOTOR_L, speed);
   
   if(dir == 1){
@@ -263,12 +259,11 @@ void resetCount(){
 
 // Helper functions when moving
 void goForward(){
-  motorPID_r(forwardTarget, forwardPID[0], forwardPID[1], forwardPID[2]);
+  motorPID_r(forwardTarget, forwardPID[0]+0.05, forwardPID[1], forwardPID[2]);
   motorPID_l(forwardTarget, forwardPID[0], forwardPID[1], forwardPID[2]);
   while (leftEncoderPos < forwardTarget && rightEncoderPos < forwardTarget) {
     delay(30); 
   }
-  resetCount();
 }
 
 void turnRight(){
@@ -277,7 +272,6 @@ void turnRight(){
   while (leftEncoderPos < rotateTarget && rightEncoderPos < rotateTarget) {
     delay(30); 
   }
-  resetCount();
 }
 
 void turnLeft(){
@@ -286,7 +280,6 @@ void turnLeft(){
   while (leftEncoderPos < rotateTarget && rightEncoderPos < rotateTarget) {
     delay(30); 
   }
-  resetCount();
 }
 
 void turnAround(){
@@ -353,7 +346,6 @@ void floodfill(struct Cell (&maze)[8][8]){
 
 
 void setup() {
-
   Serial.begin(9600);
   
   pinMode(EMITTERS, OUTPUT);
@@ -396,36 +388,77 @@ void setup() {
   Serial.print(" CURRENT WEIGHT: ");
   Serial.print(currPos.weight);
   Serial.println("");
-  turnRight();
-  delay(5);
-  setMotor_l(0,0);
-  setMotor_r(0,0);
 }
 
+
 void loop() {
-  //goForward();
+  goForward();
+  Serial.println("");
+  Serial.print(" LEFT: "); 
+  Serial.print(leftEncoderPos); 
+  Serial.print(" RIGHT: "); 
+  Serial.print(rightEncoderPos);
+  resetCount();
+  delay(2000);
   /*int dipSwitch = analogRead(DIP_SWITCH);
   if(dipSwitch > 1000){
-    switchOn = true;
+    switchOn = true; 
   }
 
   if(switchOn){
     delay(5000);
-    while(currPos.x != GOAL.x || currPos.y != GOAL.y){ // Do this until we get to the goal
+    while(currPos.x != GOAL.x || currPos.y != GOAL.y){  // Do this until we get to the goal
       digitalWrite(EMITTERS, HIGH);
 
       // If our sensors detect new walls, update our maze
       if(analogRead(RIGHT_SENSOR) >  sensorThreshold){
-        maze[currPos.y][currPos.x].walls[0] = true;
-        maze[currPos.y][currPos.x+1].walls[1] = true;
+        if(prevHeading == "NORTH"){
+          maze[currPos.y][currPos.x].walls[0] = true;
+          maze[currPos.y][currPos.x+1].walls[1] = true;
+        } else if(prevHeading == "EAST"){
+            maze[currPos.y][currPos.x].walls[3] = true;
+            maze[currPos.y-1][currPos.x].walls[2] = true;
+        } else if(prevHeading == "SOUTH"){
+            maze[currPos.y][currPos.x].walls[1] = true;
+            maze[currPos.y][currPos.x-1].walls[0] = true;
+        } else if(prevHeading == "WEST"){
+            maze[currPos.y][currPos.x].walls[2] = true;
+            maze[currPos.y+1][currPos.x].walls[3] = true;
+        }
+        delay(200);
       }
       if(analogRead(MIDDLE_SENSOR) >  sensorThreshold){
-        maze[currPos.y][currPos.x].walls[2] = true;
-        maze[currPos.y-1][currPos.x].walls[3] = true;
+        if(prevHeading == "NORTH"){
+          maze[currPos.y][currPos.x].walls[2] = true;
+          maze[currPos.y+1][currPos.x].walls[3] = true;
+        } else if(prevHeading == "EAST"){
+            maze[currPos.y][currPos.x].walls[1] = true;
+            maze[currPos.y][currPos.x+1].walls[0] = true;
+        } else if(prevHeading == "SOUTH"){
+            maze[currPos.y][currPos.x].walls[3] = true;
+            maze[currPos.y+1][currPos.x].walls[2] = true;
+        } else if(prevHeading == "WEST"){
+            maze[currPos.y][currPos.x].walls[1] = true;
+            maze[currPos.y][currPos.x-1].walls[2] = true;
+        }
+        delay(200);
       }
+
       if(analogRead(LEFT_SENSOR) >  sensorThreshold){
-        maze[currPos.y][currPos.x].walls[1] = true;
-        maze[currPos.y][currPos.x+1].walls[0] = true;
+        if(prevHeading == "NORTH"){
+          maze[currPos.y][currPos.x].walls[1] = true;
+          maze[currPos.y][currPos.x-1].walls[0] = true;
+        } else if(prevHeading == "EAST"){
+            maze[currPos.y][currPos.x].walls[2] = true;
+            maze[currPos.y+1][currPos.x].walls[3] = true;
+        } else if(prevHeading == "SOUTH"){
+            maze[currPos.y][currPos.x].walls[0] = true;
+            maze[currPos.y][currPos.x+1].walls[1] = true;
+        } else if(prevHeading == "WEST"){
+            maze[currPos.y][currPos.x].walls[3] = true;
+            maze[currPos.y-1][currPos.x].walls[2] = true;
+        }
+        delay(200);
       }
     
     // Check each cardinal direction's cell to see if its the lowest to move to
@@ -435,28 +468,28 @@ void loop() {
         if(prevHeading == "NORTH"){
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "EAST"){
           turnLeft();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "SOUTH"){
           turnAround();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "WEST"){
           turnRight();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         }
 
         //Serial.println("GOING NORTH FROM ");
@@ -484,28 +517,28 @@ void loop() {
         if(prevHeading == "NORTH"){
           turnRight();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "EAST"){
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "SOUTH"){
           turnLeft();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "WEST"){
           turnAround();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         }
 
         //Serial.println("GOING EAST FROM ");
@@ -533,28 +566,28 @@ void loop() {
         if(prevHeading == "NORTH"){
           turnAround();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "EAST"){
           turnRight();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "SOUTH"){
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "WEST"){
           turnLeft();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         }
 
         //Serial.println("GOING SOUTH FROM ");
@@ -582,28 +615,28 @@ void loop() {
         if(prevHeading == "NORTH"){
           turnLeft();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "EAST"){
           turnAround();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "SOUTH"){
           turnRight();
           resetCount();
-          delay(200);
+          delay(400);
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         } else if(prevHeading == "WEST"){
           goForward();
           resetCount();
-          delay(200);
+          delay(400);
         }
 
         //Serial.println("GOING WEST FROM ");
